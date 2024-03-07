@@ -1,0 +1,178 @@
+//-----------------------------
+// Title: Heating/cooling assignment
+//-----------------------------
+// Purpose: Sets a reference temperature to compare to a measured temp. Turns on heat if
+// measured < ref and vice versa if measured > ref
+// Dependencies: NONE
+// Compiler: MPLAB X IDE v6.20
+// Author: James Weaver
+// OUTPUTS: PortD, 1 (heater) and PortD, 2 (cooler/AC)
+// INPUTS: refTemp and measuredTemp 
+// Versions:
+//  	V1.0: 3/6/2024 - First version 
+//  	
+//-----------------------------
+
+
+;---------------------
+; Initialization - make sure the path is correct
+;---------------------
+;#include ".\AssemblyConfig.inc"
+#include "C:\Users\jlwea\MPLABXProjects\AssemblyConfig.inc"
+
+#include <xc.inc>
+
+;----------------
+; PROGRAM INPUTS
+;----------------
+#define  measuredTemp	20 ; this is the input value, -20c to 60c
+#define  refTemp 	15 ; this is the input value, 10c to 50c
+
+;----------------
+;REGISTERS
+;----------------
+#define  measuredTempREG 	0x20 
+#define  refTempREG 		0x21
+#define	 contReg		0x22
+#define	quotient		0x101
+#define	BCD_100s		0x62
+#define	BCD_10s			0x61
+#define	BCD_1s			0x60
+#define Temp			0x100
+
+
+;----------------
+;PROGRAM OUTPUTS
+;----------------
+#define  measuredTempDecimal 	0x70 ; this is the input value
+#define  refTempInputDecimal     ; this is the input value
+#define   HEATER    PORTD,1
+#define   COOLER    PORTD,2
+
+    
+;MAIN PROGRAM
+
+    PSECT absdata,abs,ovrld ; Do not change 
+    
+    ORG 0X00
+    
+    BCF TRISD, 1, 0 ; Set RD1 as an output
+    BCF TRISD, 2, 0 ; Set RD2 as an output
+    CLRF STATUS
+    CLRF WREG
+    
+    ;set refTemp and measTemp
+    
+    MOVLW refTemp
+    MOVWF refTempREG, 0
+    MOVLW measuredTemp
+    MOVWF measuredTempREG
+   
+  
+    ; This block of code sets numerator, quotient and denominator 
+    ; for hex-dec conversion
+    
+    NUME    EQU 0X80
+    QU	    EQU	0X81
+    MYDEN   EQU	10
+   
+   
+    ; This block of code stores refTemp as decimal
+    
+    RMND_L_ref  EQU 0X60
+    RMND_M_ref  EQU 0X61
+    RMND_H_ref  EQU 0X62
+    
+	MOVLW   refTemp
+	MOVWF   NUME
+	MOVLW   MYDEN
+	CLRF    QU
+ D_1:   INCF	QU, F
+	SUBWF	NUME
+	BC  D_1
+	ADDWF	NUME
+	DECF	QU, F
+	MOVFF	NUME, RMND_L_ref
+	MOVFF	QU, NUME
+	CLRF	QU
+D_2:	INCF	QU, F
+	SUBWF	NUME
+	BC  D_2
+	ADDWF	NUME
+	DECF QU, F
+	MOVFF	NUME, RMND_M_ref
+	MOVFF	QU, RMND_H_ref
+   
+	
+     ; This block of code stores measuredTemp as decimal
+     
+    RMND_L_meas  EQU	0X70
+    RMND_M_meas  EQU	0X71
+    RMND_H_meas  EQU	0X72
+    
+	MOVLW   measuredTemp
+	MOVWF   NUME
+	MOVLW   MYDEN
+	CLRF    QU
+ D_3:   INCF	QU, F ; this loop extracts the least significant digit 
+	SUBWF	NUME
+	BC  D_3
+	ADDWF	NUME
+	DECF	QU, F
+	MOVFF	NUME, RMND_L_meas
+	MOVFF	QU, NUME
+	CLRF	QU
+D_4:	INCF	QU, F ; this loop extracts most and second most sig dig
+	SUBWF	NUME
+	BC  D_4
+	ADDWF	NUME
+	DECF QU, F
+	MOVFF	NUME, RMND_M_meas
+	MOVFF	QU, RMND_H_meas
+    
+    
+    
+   
+	
+    COMPARE_LOOP: ; tests if measuredTemp > refTemp
+    MOVLW measuredTemp
+    SUBWF refTempREG, 0, 0 ; refTemp - measuredTemp
+    
+    BTFSC STATUS, 2, 0 ; Check if W (result of subtraction) is zero
+	GOTO update_target
+
+    BTFSC STATUS, 4, 0 ; Check if W (result of subtraction) is negative (turns on AC)
+	GOTO update_cooling
+	GOTO update_heating
+	
+   ; BTFSS STATUS, 4, 0 ; Check if W (result of subtraction) is non-negative (turns on heater)
+	;GOTO update_heating
+	
+   ; GOTO COMPARE_LOOP
+
+    
+    
+    
+    
+    
+    update_target:
+    MOVLW 0x00
+    MOVWF contReg
+    GOTO COMPARE_LOOP
+    MOVLW measuredTemp
+    
+    
+    update_heating:
+    MOVLW 0x01
+    MOVWF contReg
+    BSF HEATER
+    GOTO COMPARE_LOOP
+    
+    
+    update_cooling:
+    MOVLW 0x02
+    MOVWF contReg
+    BSF COOLER
+    GOTO COMPARE_LOOP
+    
+    
