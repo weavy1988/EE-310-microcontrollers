@@ -1,0 +1,195 @@
+// Title: Seven Segment counter
+// Purpose: To count 0-F, either up or down, by pressing either switch A or B, respectively.
+	//Pressing both switches at the same time resets to zero.
+// Dependencies: None
+// Compiler: MPLAB X IDE v.6.20
+// Author: James Weaver
+// Outputs: RD0, RD1, RD2, RD3, RD4, RD5, RD6
+// Inputs: RB1 (switch A) and RB2 (switch B)
+// Versions:
+	//Version 1.0: 3/23/2024 - First version
+	
+	
+	
+	
+; Initialization
+;---------------------
+#include "C:\Users\jlwea\Desktop\FirstAssemblyMPLAB.X\AssemblyConfig.inc"
+	
+#include <xc.inc>
+
+
+;---------------------
+PSECT absdata,abs,ovrld        ; Do not change
+	
+	;set delay time
+	LOOP1	EQU	0xFF
+	LOOP2	EQU	0xFF
+
+	ORG	00		;Reset vectoR
+	
+	
+	
+	; set all pins on PORTD to output
+	MOVLW	0
+	MOVWF	TRISD
+	
+	; configure PORTB to receive analog inputs
+	BANKSEL	    PORTB
+	CLRF	    PORTB
+	BANKSEL	    LATB
+	CLRF	    LATB
+	BANKSEL	    ANSELB
+	CLRF	    ANSELB
+	BANKSEL	    TRISB
+	MOVLW	    0x0F
+	MOVWF	    TRISB
+	BANKSEL	    PORTB
+	CLRF	    PORTB
+	
+	; sequentially loads all possible values (0-F) to registers 69-84 (decimal)
+	MOVLW	0x3F
+	MOVWF	69
+	MOVLW	0x06
+	MOVWF	70
+	MOVLW	0x5B
+	MOVWF	71
+	MOVLW	0x4F
+	MOVWF	72
+	MOVLW	0x66
+	MOVWF	73
+	MOVLW	0x6D
+	MOVWF	74
+	MOVLW	0x7D
+	MOVWF	75
+	MOVLW	0x07
+	MOVWF	76
+	MOVLW	0x7F
+	MOVWF	77
+	MOVLW	0x67
+	MOVWF	78
+	MOVLW	0x77
+	MOVWF	79
+	MOVLW	0x7C
+	MOVWF	80
+	MOVLW	0x39
+	MOVWF	81
+	MOVLW	0x5E
+	MOVWF	82
+	MOVLW	0x79
+	MOVWF	83
+	MOVLW	0x71
+	MOVWF	84
+ 
+	
+	; initializes FSR0 and loads critical values to registers
+	BANKSEL 0
+	LFSR 0, 69
+	MOVLW	0x44 ; this is used to verify that the FSR is not below register 69d
+	MOVWF	0x80
+	MOVLW	0x55 ; this is used to verify that the FSR is not above register 84d
+	MOVWF	0x81
+	MOVLW	0x06 ; this is used to verify if both buttons are pressed
+	MOVWF	0x82
+	
+	HOLD1:
+	    MOVLW	0x06
+	    SUBWF	PORTB, 0
+	    BZ		RESET_DISPLAY ; branches to reset_display subroutine if both inputs are high
+	    MOVFF	PORTB, WREG
+	    MOVWF	0x60
+	    MOVWF	0x61
+	    BTFSC	0x60, 1 ; check to see if RB1 (SWA) is high/pressed
+	    GOTO	Main_loop_up
+	    BTFSC	0x61, 2 ; check to see if RB2 (SWB) is high/pressed
+	    GOTO	Main_loop_down 
+	    GOTO	HOLD1 ; if no buttons are pressed, loop back
+
+	
+	Main_loop_up:
+    
+	    MOVLW	0x06 ; always checking to see if both buttons are pressed
+	    SUBWF	PORTB, 0
+	    BZ		RESET_DISPLAY
+	    BTFSS	PORTB, 1 
+	    GOTO	FSR_CORRECTION_UP ; when SWA no pressed anymore, prepares to loop back to HOLD1
+	   
+	    MOVFF	POSTINC0, PORTD 
+	    CALL	DELAY ; 
+	    MOVF	FSR0, 0 ; the following 4 lines of code check to see if the FSR is out of range. Will 
+				; branch to a subroutine if that resets it to high or low
+	    SUBWF	0x81, 0
+	    BTFSC	STATUS, 2
+	    CALL	RESET_COUNT_L
+	    BRA		Main_loop_up
+	
+	
+	Main_loop_down:
+	    MOVLW	0x06
+	    SUBWF	PORTB, 0
+	    BZ		RESET_DISPLAY
+	    BTFSS	PORTB, 2
+	    GOTO	FSR_CORRECTION_DOWN
+	    MOVFF	POSTDEC0, PORTD ;
+	    CALL	DELAY 
+	    MOVF	FSR0, 0
+	    SUBWF	0x80, 0
+	    BTFSC	STATUS, 2
+	    CALL	RESET_COUNT_H
+	    BRA		Main_loop_down
+	    
+	RESET_COUNT_L: ; when counting up, if the FSR pointer reaches reg 84d, will reset pointer to reg 69d
+	    LFSR 0,	69
+	    RETURN
+	    
+	RESET_COUNT_H: ; when counting down, if the FSR pointer reaches reg 69d, will reset pointer to reg 84d
+	    LFSR 0,	84
+	    RETURN
+	
+	
+	DELAY:
+	    MOVLW	LOOP1
+	    MOVWF	0x05
+	    MOVLW	LOOP2
+	    MOVWF	0x06
+	
+	    LOOP_1:
+		NOP
+		NOP
+		NOP
+		NOP
+		NOP
+		NOP
+		NOP
+		DECF    0x05
+		BTFSC   STATUS, 2
+		GOTO    LOOP_2
+		BNZ	LOOP_1
+	    
+	    LOOP_2:
+		DECF	0x06
+		BTFSC	STATUS, 2
+		RETURN
+		MOVLW   LOOP2
+		MOVWF   0x05
+		GOTO	LOOP_1
+		
+
+	FSR_CORRECTION_DOWN: ;this loop corrects the FSR pointer by adding 1 to
+			    ; the address it is pointing to. This prevents a counting error.
+		MOVLW	0x01
+		ADDWF	FSR0
+		GOTO	HOLD1
+		
+	FSR_CORRECTION_UP: ; this loop corrects the FSR pointer by subtracting 1 from
+			    ; the address it is pointing to. This prevents a counting error
+		MOVLW	0x01
+		SUBWF	FSR0
+		GOTO	HOLD1 ; go back to HOLD1 and wait for a button to be pressed
+		
+	RESET_DISPLAY: ; when both buttons pressed, displays zero and resets FSR
+		MOVLW	0x3F
+		MOVWF	PORTD
+		LFSR	0, 69
+		CALL	DELAY
+		GOTO	HOLD1
