@@ -1,0 +1,155 @@
+
+#include "initialization.h"
+#include "config.h"
+#include "interrupt.h"
+
+
+
+
+
+
+void MSDelay(unsigned int);
+void waitForever(void);
+    void __interrupt(irq(IRQ_INT0),base(0x4008)) INT0_ISR(void)
+{
+    if (PIR1bits.INT0IF == 1) // Check if interrupt flag for INT0 is set to 1
+    {
+       
+
+        for (int i = 0; i < 5; i++) {
+            PORTBbits.RB1 = 1; // Turn on RD0
+            MSDelay(300);   // Delay for 1000 milliseconds (1 second)
+            PORTBbits.RB1 = 0; // Turn off RD0
+            MSDelay(300);   // Delay for 1000 milliseconds (1 second)
+        }
+        
+        // Always clear the interrupt flag for INT0 when done
+        PIR1bits.INT0IF = 0;
+        
+        PORTDbits.RD0 = 0;// Turn off the LED on PORTDbits.RD0
+    }
+}
+
+
+
+void main() {
+
+    unsigned int count = 3;
+    unsigned int inputCode_0 = 0;
+    unsigned int inputCode_1 = 0;
+    unsigned int secretCode = 0;
+    unsigned int t = 1000;
+    unsigned int count_1 = 5;
+    
+    initialization();
+    INTERRUPT_Initialize();
+    
+   //RB0 and RB1 will be for the photoresistor inputs
+   //assumption will be that both PRs are always "on", or exposed to light
+   //secret code is 2-3 (that is, cover RB0 3 times then RB1 twice)
+    
+    
+    while(1){
+        while (PORTAbits.RA0 == 0 | PORTAbits.RA1 == 0){
+         
+            switch(PORTA){
+                    case 2: //PR1 has been covered
+                        count_1--;
+                        inputCode_0 = inputCode_0++;
+                        PORTD = digit_1;
+                        MSDelay(t);
+                        PORTD = 0x0;
+                        break;
+                    case 1: // PR2 has been covered
+                        count--;
+                        PORTD = digit_2;
+                        MSDelay(t);
+                        PORTD = 0x0;
+                        break;
+                       ;
+                       ;
+                       ;
+                       ;
+                       
+            }
+            
+            if (count == 0 | count_1 == 0){
+        
+                PORTBbits.RB1 = 1; //sound buzzer
+                waitForever();
+                
+            }
+        }
+  
+    if (inputCode_0 == 0x3 & count == 3){
+    count = 3;
+    count_1 = 5;
+    while(1){
+        while (PORTAbits.RA0 == 0 | PORTAbits.RA1 == 0){        
+           
+           switch(PORTA){
+                    case 2: //PR1 has been covered
+                        count--;
+                        PORTD = digit_1;
+                        MSDelay(t);
+                        PORTD = 0x0;
+                        MSDelay(250);
+                        break;
+                    case 1: //PR2 has been covered
+                        inputCode_1 = inputCode_1++;
+                        PORTD = digit_2;
+                        MSDelay(t);
+                        PORTD = 0x0;
+                        MSDelay(250);
+                        if (inputCode_1 == 2 & count ==3){
+                            PORTBbits.RB2 = 1; //open door
+                        }
+                        MSDelay(t);
+                        break;
+                        ;
+                        ;
+                        ;
+                        ;
+            }
+            if (count == 0 | count_1 == 0){
+        
+                PORTBbits.RB1 = 1; //sound buzzer
+                waitForever();
+            }
+           
+           
+        }
+    
+    
+
+    
+    }  
+    }
+           
+    }
+   
+
+    
+    
+    
+    
+    
+    
+    
+    
+                        
+    }
+    
+
+
+void MSDelay(unsigned int itime) {
+    unsigned int i;
+    unsigned char j;
+    for(i = 0; i < itime; i++)
+        for(j = 0; j < 255; j++);
+}
+
+void waitForever(void){
+    while(1);
+
+}
