@@ -1,0 +1,35 @@
+
+
+#ifndef INITIALIZATION_H
+#define	INITIALIZATION_H
+
+#ifdef	__cplusplus
+extern "C" {
+#endif
+#include "config.h"
+#include "C:\Program Files\Microchip\xc8\v2.46\pic\include\proc\pic18f46k42.h"
+//#include <pic18f46k42.h>
+//#include "C:\Users\jlwea\MPLABXProjects\cprogram.X\newxc8_header.h"
+    
+    void initialization(void){
+        //ADC Initialization
+    TRISD = 0x0; // PORTD will be the output to seven seg display
+    ANSELD = 0x0;
+    ANSELA = 0x0;
+    ANSELB = 0x0;
+    TRISB = 0x0; // PORTB will be output to buzzer and motor
+    TRISBbits.TRISB0 = 1;
+    TRISAbits.TRISA0 = 1; TRISAbits.TRISA1 = 1; // RA0 and RA1 will be inputs for PR1 and PR2, respectively
+    PORTB = 0x0; 
+    PORTD = 0x0;
+   
+    
+
+    }
+
+#ifdef	__cplusplus
+}
+#endif
+
+#endif	/* INITIALIZATION_H */
+
